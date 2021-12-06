@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 
+
 namespace simple_router {
 
 //////////////////////////////////////////////////////////////////////////
@@ -34,8 +35,7 @@ RoutingTable::lookup(uint32_t ip) const
   // FILL THIS IN
   RoutingTableEntry out_entry;
   int pre_len = -1;
-  std::list<RoutingTableEntry>::iterator i;
-  for (i = m_entries.begin(); i != m_entries.end(); i++)
+  for (auto i: m_entries)
   {
     if ((ip & i.mask) == (i.dest & i.mask))
     {
