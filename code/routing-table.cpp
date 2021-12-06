@@ -35,11 +35,11 @@ RoutingTable::lookup(uint32_t ip) const
   // FILL THIS IN
   RoutingTableEntry out_entry;
   int pre_len = -1;
-  for (auto i: m_entries)
+  for (const auto& entry : m_entries)
   {
-    if ((ip & i.mask) == (i.dest & i.mask))
+    if ((ip & entry.mask) == (entry.dest & entry.mask))
     {
-      int n = i.mask;
+      int n = entry.mask;
       n = (n & 0x55555555) + ((n >> 1) & 0x55555555);
       n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
       n = (n & 0x0F0F0F0F) + ((n >> 4) & 0x0F0F0F0F);
@@ -47,7 +47,7 @@ RoutingTable::lookup(uint32_t ip) const
       if (pre_len < n)
       {
         pre_len = n;
-        out_entry = i;
+        out_entry = entry;
       }
     }
   }
