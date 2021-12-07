@@ -39,6 +39,19 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
 
   // FILL THIS IN
 
+  if (!checkEther(packet, inIface)) {
+        std::cerr << "Ether Header check failed..." << std::endl;
+        return;
+    }
+
+    struct ethernet_hdr* hEther = (struct ethernet_hdr*)packet.data();
+    if (ethertype(hEther) == ethertype_arp) {
+        std::cerr << "Handling ARP Packet..." << std::endl;
+        handleArpPacket(packet, inIface);
+    } else if (ethertype(hEther) == ethertype_ip) {
+        std::cerr << "Handling IPv4 Packet..." << std::endl;
+        handleIPv4Packet(packet, inIface);
+    }
 }
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
