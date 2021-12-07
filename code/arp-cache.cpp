@@ -31,7 +31,41 @@ void
 ArpCache::periodicCheckArpRequestsAndCacheEntries()
 {
 
-  // FILL THIS IN
+	// FILL THIS IN
+	std::vector<std::shared_ptr<ArpRequest>> invalidRequests;
+	for (auto request : m_arpRequests) {
+		time_point now = steady_clock::now();
+		if (now - request->timeSent <= seconds(1)) {
+			// CERR("Time interval < 1s, miss it");
+			return;
+		}
+
+		if (request->nTimesSent >= MAX_SENT_TIME) {
+			invalidRequests.push_back(request);
+			for (auto& packet : request->packets) {
+				m_router.replyIcmpHostUnreachable(packet.packet);
+			}
+		} else {
+			m_router.sendArpRequest(request->ip);
+			request->nTimesSent++;
+			request->timeSent = now;
+		}
+	}
+
+	for (auto request : invalidRequests) {
+		m_arpRequests.remove(request);
+	}
+
+	// remove
+	std::vector<std::shared_ptr<ArpEntry>> invalidEntries;
+	for (auto entry : m_cacheEntries) {
+		if (!entry->isValid) {
+			invalidEntries.push_back(entry);
+		}
+	}
+	for (auto entry : invalidEntries) {
+		m_cacheEntries.remove(entry);
+	}
 
 }
 //////////////////////////////////////////////////////////////////////////
@@ -58,9 +92,9 @@ ArpCache::lookup(uint32_t ip)
   std::lock_guard<std::mutex> lock(m_mutex);
 
   for (const auto& entry : m_cacheEntries) {
-    if (entry->isValid && entry->ip == ip) {
-      return entry;
-    }
+	if (entry->isValid && entry->ip == ip) {
+	  return entry;
+	}
   }
 
   return nullptr;
@@ -72,12 +106,12 @@ ArpCache::queueRequest(uint32_t ip, const Buffer& packet, const std::string& ifa
   std::lock_guard<std::mutex> lock(m_mutex);
 
   auto request = std::find_if(m_arpRequests.begin(), m_arpRequests.end(),
-                           [ip] (const std::shared_ptr<ArpRequest>& request) {
-                             return (request->ip == ip);
-                           });
+						   [ip] (const std::shared_ptr<ArpRequest>& request) {
+							 return (request->ip == ip);
+						   });
 
   if (request == m_arpRequests.end()) {
-    request = m_arpRequests.insert(m_arpRequests.end(), std::make_shared<ArpRequest>(ip));
+	request = m_arpRequests.insert(m_arpRequests.end(), std::make_shared<ArpRequest>(ip));
   }
 
   // Add the packet to the list of packets for this request
@@ -105,14 +139,14 @@ ArpCache::insertArpEntry(const Buffer& mac, uint32_t ip)
   m_cacheEntries.push_back(entry);
 
   auto request = std::find_if(m_arpRequests.begin(), m_arpRequests.end(),
-                           [ip] (const std::shared_ptr<ArpRequest>& request) {
-                             return (request->ip == ip);
-                           });
+						   [ip] (const std::shared_ptr<ArpRequest>& request) {
+							 return (request->ip == ip);
+						   });
   if (request != m_arpRequests.end()) {
-    return *request;
+	return *request;
   }
   else {
-    return nullptr;
+	return nullptr;
   }
 }
 
@@ -129,21 +163,21 @@ void
 ArpCache::ticker()
 {
   while (!m_shouldStop) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+	std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    {
-      std::lock_guard<std::mutex> lock(m_mutex);
+	{
+	  std::lock_guard<std::mutex> lock(m_mutex);
 
-      auto now = steady_clock::now();
+	  auto now = steady_clock::now();
 
-      for (auto& entry : m_cacheEntries) {
-        if (entry->isValid && (now - entry->timeAdded > SR_ARPCACHE_TO)) {
-          entry->isValid = false;
-        }
-      }
+	  for (auto& entry : m_cacheEntries) {
+		if (entry->isValid && (now - entry->timeAdded > SR_ARPCACHE_TO)) {
+		  entry->isValid = false;
+		}
+	  }
 
-      periodicCheckArpRequestsAndCacheEntries();
-    }
+	  periodicCheckArpRequestsAndCacheEntries();
+	}
   }
 }
 
@@ -153,16 +187,16 @@ operator<<(std::ostream& os, const ArpCache& cache)
   std::lock_guard<std::mutex> lock(cache.m_mutex);
 
   os << "\nMAC            IP         AGE                       VALID\n"
-     << "-----------------------------------------------------------\n";
+	 << "-----------------------------------------------------------\n";
 
   auto now = steady_clock::now();
   for (const auto& entry : cache.m_cacheEntries) {
 
-    os << macToString(entry->mac) << "   "
-       << ipToString(entry->ip) << "   "
-       << std::chrono::duration_cast<seconds>((now - entry->timeAdded)).count() << " seconds   "
-       << entry->isValid
-       << "\n";
+	os << macToString(entry->mac) << "   "
+	   << ipToString(entry->ip) << "   "
+	   << std::chrono::duration_cast<seconds>((now - entry->timeAdded)).count() << " seconds   "
+	   << entry->isValid
+	   << "\n";
   }
   os << std::endl;
   return os;
