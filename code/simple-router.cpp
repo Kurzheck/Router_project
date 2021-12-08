@@ -104,7 +104,14 @@ SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
   }
   else // dst to router
   {
+    if (iHdr->ip_p == ip_protocol_icmp)
+    {
 
+    }
+    else
+    {
+
+    }
   }
 
 InvalidIPv4:
@@ -155,6 +162,41 @@ SimpleRouter::handleArp(const Buffer& packet, const std::string& inIface)
 InvalidArp:
   {
     std::cerr << "Invalid ARP packet" << std::endl;
+    return;
+  }
+}
+
+void
+SimpleRouter::handleICMP(const Buffer& packet, const std::string& inIface)
+{
+
+  // tcp or udp
+  if (iHdr->ip_p != ip_protocol_icmp)
+  {
+    // icmp unreachable
+    return;
+  }
+
+  if (packet.size() < sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct icmp_hdr))
+  {
+    goto InvalidICMP;
+  }
+
+  struct icmp_hdr* icHdr = (struct icmp_hdr*)(packet.data() + sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr));
+  const auto checksum = icHdr->icmp_sum;
+  icHdr->icmp_sum = 0;
+  if (cksum(icHdr, packet.size() - sizeof(struct ethernet_hdr) - sizeof(struct ip_hdr)) != checksum)
+  {
+    icHdr->icmp_sum = checksum;
+    goto InvalidICMP;
+  }
+  icHdr->icmp_sum = checksum;
+
+
+
+InvalidICMP:
+  {
+    std::cerr << "Invalid ICMP packet" << std::endl;
     return;
   }
 }
