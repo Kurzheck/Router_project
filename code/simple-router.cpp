@@ -192,7 +192,10 @@ SimpleRouter::handleICMP(const Buffer& packet, const std::string& inIface)
   }
   icHdr->icmp_sum = checksum;
 
-
+  if (icHdr->icmp_type == icmp_type_echo && hICMP->icmp_code == icmp_code_echo)
+  {
+    // replyIcmpEchoReply
+  }
 
 InvalidICMP:
   {
