@@ -51,8 +51,8 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
   }
   struct ethernet_hdr* eHdr = (struct ethernet_hdr*)packet.data();
 
-  auto iFace = findIfaceByName(inIface);
   const auto dst = eHdr->ether_dhost;
+  const auto iFace = findIfaceByName(inIface);
   if (memcmp(dst, iFace->addr.data(), ETHER_ADDR_LEN) &&
     (dst[0] & dst[1] & dst[2] & dst[3] & dst[4] & dst[5]) != 0xff)
   {
