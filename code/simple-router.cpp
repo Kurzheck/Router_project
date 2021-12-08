@@ -83,7 +83,29 @@ InvalidEther:
 void
 SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
 {
+  if (packet.size() != sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr))
+  {
+    goto InvalidIPv4;
+  }
+  struct ip_hdr* iHdr = (struct ip_hdr*)(packet.data() +¡¡sizeof(struct ethernet_hdr));
+  const auto checksum = iHdr->ip_sum;
+  iHdr->ip_sum = 0;
+  if (cksum(iHdr, sizeof(struct ip_hdr)) != checksum)
+  {
+    iHdr->ip_sum = checksum;
+    goto InvalidIPv4;
+  }
+  iHdr->ip_sum = checksum;
 
+  const auto iFace = findIfaceByIp(iHdr->dst);
+  if (iFace) // forwarding
+  {
+
+  }
+  else // dst to router
+  {
+
+  }
 
 InvalidIPv4:
   {
