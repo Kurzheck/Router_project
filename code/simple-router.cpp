@@ -40,18 +40,46 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
   // FILL THIS IN
 
   if (!checkEther(packet, inIface)) {
-        std::cerr << "Ether Header check failed..." << std::endl;
-        return;
-    }
+    std::cerr << "Ether Header check failed..." << std::endl;
+    return;
+  }
 
-    struct ethernet_hdr* hEther = (struct ethernet_hdr*)packet.data();
-    if (ethertype(hEther) == ethertype_arp) {
-        std::cerr << "Handling ARP Packet..." << std::endl;
-        handleArpPacket(packet, inIface);
-    } else if (ethertype(hEther) == ethertype_ip) {
-        std::cerr << "Handling IPv4 Packet..." << std::endl;
-        handleIPv4Packet(packet, inIface);
-    }
+  // check Ether
+  if (packet.size() < sizeof(struct ether_hdr))
+  {
+    goto InvalidEther;
+  }
+  struct ethernet_hdr* eHdr = (struct ethernet_hdr*)packet.data();
+
+  auto iFace = findIfaceByName(inIface);
+  const auto dst = eHdr->ether_dhost;
+  if (memcmp(dst, iFace->addr.data(), ETHER_ADDR_LEN) &&
+    (dst[0] & dst[1] & dst[2] & dst[3] & dst[4] & dst[5]) != 0xff)
+  {
+    goto InvalidEther;
+  }
+
+  uint16_t eType = ethertype(eHdr);
+  if (eType == ethertype_arp)
+  {
+    std::cerr << "Handling ARP Packet..." << std::endl;
+    handleArpPacket(packet, inIface);
+  }
+  else if (eType == ethertype_ip)
+  {
+    std::cerr << "Handling IPv4 Packet..." << std::endl;
+    handleIPv4Packet(packet, inIface);
+  }
+  else
+  {
+    goto InvalidEther;
+  }
+
+InvalidEther:
+  {
+    std::cerr << "Invalid Ether Header" << std::endl;
+    return;
+  }
 }
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
