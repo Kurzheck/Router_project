@@ -60,19 +60,21 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
   }
 
   uint16_t eType = ethertype(eHdr);
-  if (eType == ethertype_arp)
+  switch (eType)
   {
+  case ethertype_arp:
     std::cerr << "Handling ARP Packet..." << std::endl;
     handleArpPacket(packet, inIface);
-  }
-  else if (eType == ethertype_ip)
-  {
+    break;
+
+  case ethertype_ip:
     std::cerr << "Handling IPv4 Packet..." << std::endl;
     handleIPv4Packet(packet, inIface);
-  }
-  else
-  {
+    break;
+  
+  default:
     goto InvalidEther;
+    break;
   }
 
 InvalidEther:
