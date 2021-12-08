@@ -39,11 +39,6 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
 
   // FILL THIS IN
 
-  if (!checkEther(packet, inIface)) {
-    std::cerr << "Ether Header check failed..." << std::endl;
-    return;
-  }
-
   // check Ether
   if (packet.size() < sizeof(struct ethernet_hdr))
   {
@@ -62,16 +57,17 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
   uint16_t eType = ethertype(eHdr);
   switch (eType)
   {
-  case ethertype_arp:
-    std::cerr << "Handling ARP Packet..." << std::endl;
-    handleArpPacket(packet, inIface);
-    break;
 
   case ethertype_ip:
     std::cerr << "Handling IPv4 Packet..." << std::endl;
-    handleIPv4Packet(packet, inIface);
+    handleIPv4(packet, inIface);
     break;
-  
+
+  case ethertype_arp:
+    std::cerr << "Handling ARP Packet..." << std::endl;
+    handleArp(packet, inIface);
+    break;
+
   default:
     goto InvalidEther;
     break;
@@ -80,6 +76,63 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
 InvalidEther:
   {
     std::cerr << "Invalid Ether Header" << std::endl;
+    return;
+  }
+}
+
+void
+SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
+{
+
+
+InvalidIPv4:
+  {
+    std::cerr << "Invalid IPv4 packet" << std::endl;
+    return;
+  }
+}
+
+void
+SimpleRouter::handleArp(const Buffer& packet, const std::string& inIface)
+{
+  if (packet.size() != sizeof(struct ethernet_hdr) + sizeof(struct arp_hdr))
+  {
+    goto InvalidArp;
+  }
+  struct arp_hdr* aHdr = (struct arp_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
+  const auto iFace = findIfaceByName(inIface);
+
+  if (aHdr->arp_tip != iFace->ip)
+  {
+    std::cerr << "ARP IP and interface does not match" << std::endl;
+    return;
+  }
+
+  if (ntohs(aHdr->arp_hrd) != arp_hrd_ethernet ||
+      ntohs(aHdr->arp_pro) != 0x800 ||
+      aHdr->arp_hln != 0x06 ||
+      aHdr->arp_pln != 0x04)
+  {
+    goto InvalidArp;
+  }
+
+  switch (ntohs(hARP->arp_op))
+  {
+  case arp_op_request:
+    /* code */
+    break;
+  case arp_op_reply:
+    /* code */
+    break;
+
+  default:
+    goto InvalidArp;
+    break;
+  }
+
+InvalidArp:
+  {
+    std::cerr << "Invalid ARP packet" << std::endl;
     return;
   }
 }

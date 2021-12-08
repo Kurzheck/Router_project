@@ -42,6 +42,8 @@ public:
    */
   void
   handlePacket(const Buffer& packet, const std::string& inIface);
+  handleArp(const Buffer& packet, const std::string& inIface);
+  handleIPv4(const Buffer& packet, const std::string& inIface);
 
   /**
    * USE THIS METHOD TO SEND PACKETS
