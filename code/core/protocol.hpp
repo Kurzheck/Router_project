@@ -137,6 +137,18 @@ enum arp_hrd_fmt {
   arp_hrd_ethernet = 0x0001,
 };
 
+enum icmp_type {
+  icmp_type_echo = 8,
+  icmp_type_echo_reply = 0,
+  icmp_type_time_exceeded = 11,
+  icmp_type_unreachable = 3,
+};
+
+enum icmp_code {
+  icmp_code_echo = 0,
+  // todo
+};
+
 
 struct arp_hdr
 {
