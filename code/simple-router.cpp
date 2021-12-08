@@ -45,7 +45,7 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
   }
 
   // check Ether
-  if (packet.size() < sizeof(struct ether_hdr))
+  if (packet.size() < sizeof(struct ethernet_hdr))
   {
     goto InvalidEther;
   }
