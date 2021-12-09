@@ -141,10 +141,10 @@ SimpleRouter::handleArp(const Buffer& packet, const std::string& inIface)
   switch (ntohs(hARP->arp_op))
   {
   case arp_op_request:
-    /* code */
+    // replyArpReply(packet, inIface)
     break;
   case arp_op_reply:
-    /* code */
+    // handleArpReply(packet)
     break;
 
   default:
