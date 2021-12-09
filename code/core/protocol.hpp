@@ -49,6 +49,8 @@
 #define IP_MAXPACKET 65535
 #endif
 
+#define IP_TTL 64
+
 #define ICMP_DATA_SIZE 28
 
 namespace simple_router {
@@ -146,7 +148,11 @@ enum icmp_type {
 
 enum icmp_code {
   icmp_code_echo = 0,
-  // todo
+  icmp_code_echo_reply = 0,
+  icmp_code_ttl_exceeded = 0,
+  icmp_code_net_unreachable = 0,
+  icmp_code_host_unreachable = 1,
+  icmp_code_port_unreachable = 3,
 };
 
 
