@@ -100,18 +100,11 @@ SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
   const auto iFace = findIfaceByIp(iHdr->dst);
   if (iFace) // forwarding
   {
-
+    // dispatch IPv4
   }
   else // dst to router
   {
-    if (iHdr->ip_p == ip_protocol_icmp)
-    {
-
-    }
-    else
-    {
-
-    }
+    handleICMP(packet);
   }
 
 InvalidIPv4:
@@ -167,13 +160,14 @@ InvalidArp:
 }
 
 void
-SimpleRouter::handleICMP(const Buffer& packet, const std::string& inIface)
+SimpleRouter::handleICMP(const Buffer& packet)
 {
 
   // tcp or udp
   if (iHdr->ip_p != ip_protocol_icmp)
   {
     // icmp unreachable
+    sendICMP(packet, icmp_type_unreachable, icmp_code_port_unreachable);
     return;
   }
 
@@ -182,6 +176,7 @@ SimpleRouter::handleICMP(const Buffer& packet, const std::string& inIface)
     goto InvalidICMP;
   }
 
+  // ??? todo
   struct icmp_hdr* icHdr = (struct icmp_hdr*)(packet.data() + sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr));
   const auto checksum = icHdr->icmp_sum;
   icHdr->icmp_sum = 0;
@@ -195,6 +190,7 @@ SimpleRouter::handleICMP(const Buffer& packet, const std::string& inIface)
   if (icHdr->icmp_type == icmp_type_echo && hICMP->icmp_code == icmp_code_echo)
   {
     // replyIcmpEchoReply
+    sendICMP(packet, icmp_type_echo_reply, icmp_type_echo_reply);
   }
 
 InvalidICMP:
@@ -202,6 +198,44 @@ InvalidICMP:
     std::cerr << "Invalid ICMP packet" << std::endl;
     return;
   }
+}
+
+
+void
+SimpleRouter::sendICMP(const Buffer& packet, const uint8_t& icmp_type, const uint8_t& icmp_code)
+{
+  Buffer reply(packet);
+  struct ethernet_hdr* eHdrR = (struct ethernet_hdr*)(reply.data());
+  struct ip_hdr* iHdrR = (struct ip_hdr*)((uint8_t*)eHdrR + sizeof(struct ethernet_hdr);
+  struct icmp_t3_hdr icHdrR = (struct icmp_t3_hdr*)((uint8_t)iHdrR + sizeof(struct ip_hdr));
+
+  struct ethernet_hdr* eHdr = (struct ethernet_hdr*)(packet.data());
+  struct ip_hdr* iHdr = (struct ip_hdr*)((uint8_t*)eHdr + sizeof(struct ether_hdr));
+  const auto entry = m_routingTable.lookup(iHdr->ip_src);
+  const auto outIface = findIfaceByName(entry.ifName);
+
+  memcpy(eHdrR->ether_shost, outIface->addr.data(), ETHER_ADDR_LEN);
+  memcpy(eHdrR->ether_dhost, eHdr->ether_shost, ETHER_ADDR_LEN);
+  eHdrR->ether_type = htons(ethertype_ip);
+
+  iHdrR->ip_id = 0;
+  iHdrR->ip_p = ip_protocol_icmp;
+  iHdrR->ip_ttl = IP_TTL;
+  iHdrR->ip_sum = 0;
+  iHdrR->ip_src = outIface->ip;
+  iHdrR->ip_dst = iHdr->ip_src;
+  iHdrR->ip_sum = cksum(iHdrR, sizeof(struct ip_hdr));
+
+  icHdrR->icmp_type = icmp_type;
+  icHdrR->icmp_code = icmp_code;
+  if (icmp_type == icmp_type_time_exceeded || icmp_type == icmp_type_unreachable)
+  {
+    memcpy((uint8_t*)icHdrR->data, (uint8_t*)iHdr, ICMP_DATA_SIZE);
+  }
+  icHdrR->icmp_sum = 0;
+  icHdrR->icmp_sum = cksum(icHdrR, packet.size() - sizeof(struct ethernet_hdr) - sizeof(struct ip_hdr));
+
+  sendPacket(reply, outIface);
 }
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

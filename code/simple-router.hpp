@@ -42,9 +42,14 @@ public:
    */
   void
   handlePacket(const Buffer& packet, const std::string& inIface);
+  void
   handleArp(const Buffer& packet, const std::string& inIface);
+  void
   handleIPv4(const Buffer& packet, const std::string& inIface);
-  handleICMP(const Buffer& packet, const std::string& inIface);
+  void
+  handleICMP(const Buffer& packet);
+  void
+  sendICMP(const Buffer& packet, const uint8_t& icmp_type, const uint8_t& icmp_code);
 
   /**
    * USE THIS METHOD TO SEND PACKETS
