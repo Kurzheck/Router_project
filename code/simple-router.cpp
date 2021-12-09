@@ -97,10 +97,11 @@ SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
   }
   iHdr->ip_sum = checksum;
 
-  const auto iface = findIfaceByIp(iHdr->dst);
+  const auto iface = findIfaceByIp(iHdr->ip_dst);
   if (iface) // forwarding
   {
     // dispatch IPv4
+    sendIPv4(packet, inIface);
   }
   else // dst to router
   {
@@ -269,6 +270,48 @@ SimpleRouter::sendICMP(const Buffer& packet, const uint8_t& icmp_type, const uin
 
   sendPacket(reply, outIface);
 }
+
+void
+SimpleRouter::sendIPv4(const Buffer& packet, const std::string& inIface)
+{
+  struct ip_hdr* iHdr = (struct ip_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
+  if (iHdr->ip_ttl <= 1)
+  {
+    sendICMP(packet, icmp_type_time_exceeded, icmp_code_ttl_exceeded);
+    return;
+  }
+  RoutingTableEntry = rtEntry;
+  try
+  {
+    rtEntry = m_routingTable.lookup(iHdr->ip_dst);
+  }
+  catch(const std::runtime_error& e)
+  {
+    std::cerr << e.what() << std::endl;
+    sendICMP(packet, icmp_type_unreachable, icmp_code_net_unreachable);
+  }
+
+  const auto aEntry = m_arp.lookup(rtEntry.gw);
+  if (!aEntry)
+  {
+    m_arp.queueRequest(iHdr->ip_dst, packet, inIface);
+    return;
+  }
+
+  Buffer buf = packet;
+  struct ethernet_hdr* eHdr = (struct ethernet_hdr*)(buf.data());
+  struct ip_hdr* iHdrS = (struct ip_hdr*)((uint8_t*)eHdr + sizeof(struct ethernet_hdr));
+  const auto outIface = findIfaceByName(rtEntry.ifName);
+
+  memcpy(eHdr->ether_shost, outIface->addr.data(), ETHER_ADDR_LEN);
+  memcpy(eHdr->ether_dhost, aEntry->mac.data(), ETHER_ADDR_LEN);
+
+  iHdrS->ip_ttl--;
+  iHdrS->ip_sum = 0;
+  iHdrS->ip_sum = cksum(iHdrS, sizeof(struct ip_hdr);
+  sendPacket(buf, outIface->name);
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 

@@ -52,6 +52,8 @@ public:
   sendICMP(const Buffer& packet, const uint8_t& icmp_type, const uint8_t& icmp_code);
   void
   sendArp(const Buffer& packet, const std::string& inIface);
+  void
+  sendIPv4(const Buffer& packet, const std::string& inIface);
 
   /**
    * USE THIS METHOD TO SEND PACKETS
