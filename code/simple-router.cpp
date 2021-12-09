@@ -145,6 +145,18 @@ SimpleRouter::handleArp(const Buffer& packet, const std::string& inIface)
     break;
   case arp_op_reply:
     // handleArpReply(packet)
+    struct arp_hdr* aHdrR = (struct arp_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
+    const auto ip = aHdrR->sip;
+    Buffer mac(aHdrR->arp_sha, aHdrR->arp_sha + ETHER_ADDR_LEN);
+    auto request = m_arp.insertArpEntry(mac, ip);
+    if (request)
+    {
+      for (auto p : request->packets)
+      {
+        handlePacket(p.packet, p.iface);
+      }
+      m_arp.removeRequest(request);
+    }
     break;
 
   default:
