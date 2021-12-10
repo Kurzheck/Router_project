@@ -49,7 +49,7 @@
 #define IP_MAXPACKET 65535
 #endif
 
-#define IP_TTL 64
+#define IP_TIME_TL 64
 
 #define ICMP_DATA_SIZE 28
 

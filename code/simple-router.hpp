@@ -47,7 +47,7 @@ public:
   void
   handleIPv4(const Buffer& packet, const std::string& inIface);
   void
-  handleICMP(const Buffer& packet);
+  handleICMP(const Buffer& packet, const uint8_t& protocol);
   void
   sendICMP(const Buffer& packet, const uint8_t& icmp_type, const uint8_t& icmp_code);
   void

@@ -47,30 +47,34 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
   struct ethernet_hdr* eHdr = (struct ethernet_hdr*)packet.data();
 
   const auto dst = eHdr->ether_dhost;
-  const auto iface = findIfaceByName(inIface);
-  if (memcmp(dst, iface->addr.data(), ETHER_ADDR_LEN) &&
+  const auto iFace = findIfaceByName(inIface);
+  if (memcmp(dst, iFace->addr.data(), ETHER_ADDR_LEN) &&
     (dst[0] & dst[1] & dst[2] & dst[3] & dst[4] & dst[5]) != 0xff)
   {
     goto InvalidEther;
   }
 
-  uint16_t eType = ethertype(eHdr);
+  uint16_t eType = ntohs(eHdr->ether_type);
   switch (eType)
   {
 
   case ethertype_ip:
-    std::cerr << "Handling IPv4 Packet..." << std::endl;
-    handleIPv4(packet, inIface);
-    break;
-
+    {
+      std::cerr << "Handling IPv4 Packet..." << std::endl;
+      handleIPv4(packet, inIface);
+      break;
+    }
   case ethertype_arp:
-    std::cerr << "Handling ARP Packet..." << std::endl;
-    handleArp(packet, inIface);
-    break;
-
+    {
+      std::cerr << "Handling ARP Packet..." << std::endl;
+      handleArp(packet, inIface);
+      break;
+    }
   default:
-    goto InvalidEther;
-    break;
+    {
+      goto InvalidEther;
+      break;
+    }
   }
 
 InvalidEther:
@@ -87,7 +91,7 @@ SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
   {
     goto InvalidIPv4;
   }
-  struct ip_hdr* iHdr = (struct ip_hdr*)(packet.data() +��sizeof(struct ethernet_hdr));
+  struct ip_hdr* iHdr = (struct ip_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
   const auto checksum = iHdr->ip_sum;
   iHdr->ip_sum = 0;
   if (cksum(iHdr, sizeof(struct ip_hdr)) != checksum)
@@ -105,7 +109,7 @@ SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
   }
   else // dst to router
   {
-    handleICMP(packet);
+    handleICMP(packet, iHdr->ip_p);
   }
 
 InvalidIPv4:
@@ -142,26 +146,32 @@ SimpleRouter::handleArp(const Buffer& packet, const std::string& inIface)
   switch (ntohs(aHdr->arp_op))
   {
   case arp_op_request:
-    sendArpReply(packet, inIface);
-    break;
-  case arp_op_reply:
-    struct arp_hdr* aHdrR = (struct arp_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
-    const auto ip = aHdrR->sip;
-    Buffer mac(aHdrR->arp_sha, aHdrR->arp_sha + ETHER_ADDR_LEN);
-    auto request = m_arp.insertArpEntry(mac, ip);
-    if (request)
     {
-      for (auto p : request->packets)
-      {
-        handlePacket(p.packet, p.iface);
-      }
-      m_arp.removeRequest(request);
+      sendArpReply(packet, inIface);
+      break;
     }
-    break;
+  case arp_op_reply:
+    {
+      struct arp_hdr* aHdrR = (struct arp_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
+      const auto ip = aHdrR->arp_sip;
+      Buffer mac(aHdrR->arp_sha, aHdrR->arp_sha + ETHER_ADDR_LEN);
+      auto request = m_arp.insertArpEntry(mac, ip);
+      if (request)
+      {
+        for (auto p : request->packets)
+        {
+          handlePacket(p.packet, p.iface);
+        }
+        m_arp.removeRequest(request);
+      }
+      break;
+    }
 
   default:
-    goto InvalidArp;
-    break;
+    {
+      goto InvalidArp;
+      break;
+    }
   }
 
 InvalidArp:
@@ -172,11 +182,11 @@ InvalidArp:
 }
 
 void
-SimpleRouter::handleICMP(const Buffer& packet)
+SimpleRouter::handleICMP(const Buffer& packet, const uint8_t& protocol)
 {
 
   // tcp or udp
-  if (iHdr->ip_p != ip_protocol_icmp)
+  if (protocol != ip_protocol_icmp)
   {
     // icmp unreachable
     sendICMP(packet, icmp_type_unreachable, icmp_code_port_unreachable);
@@ -199,9 +209,8 @@ SimpleRouter::handleICMP(const Buffer& packet)
   }
   icHdr->icmp_sum = checksum;
 
-  if (icHdr->icmp_type == icmp_type_echo && hICMP->icmp_code == icmp_code_echo)
+  if (icHdr->icmp_type == icmp_type_echo && icHdr->icmp_code == icmp_code_echo)
   {
-    // replyIcmpEchoReply
     sendICMP(packet, icmp_type_echo_reply, icmp_type_echo_reply);
   }
 
@@ -246,7 +255,7 @@ SimpleRouter::sendArpReply(const Buffer& packet, const std::string& inIface)
   struct arp_hdr* aHdrR = (struct arp_hdr*)((uint8_t*)eHdrR + sizeof(struct ethernet_hdr));
 
   struct ethernet_hdr* eHdr = (struct ethernet_hdr*)(packet.data());
-  struct arp_hdr* aHdrR = (struct arp_hdr*)((uint8_t*)eHdr + sizeof(struct ethernet_hdr));
+  struct arp_hdr* aHdr = (struct arp_hdr*)((uint8_t*)eHdr + sizeof(struct ethernet_hdr));
   const auto iface = findIfaceByName(inIface);
 
   memcpy(eHdrR->ether_shost, iface->addr.data(), ETHER_ADDR_LEN);
@@ -265,11 +274,11 @@ SimpleRouter::sendICMP(const Buffer& packet, const uint8_t& icmp_type, const uin
 {
   Buffer reply(packet);
   struct ethernet_hdr* eHdrR = (struct ethernet_hdr*)(reply.data());
-  struct ip_hdr* iHdrR = (struct ip_hdr*)((uint8_t*)eHdrR + sizeof(struct ethernet_hdr);
-  struct icmp_t3_hdr icHdrR = (struct icmp_t3_hdr*)((uint8_t)iHdrR + sizeof(struct ip_hdr));
+  struct ip_hdr* iHdrR = (struct ip_hdr*)((uint8_t*)eHdrR + sizeof(struct ethernet_hdr));
+  struct icmp_t3_hdr* icHdrR = (struct icmp_t3_hdr*)((uint8_t*)iHdrR + sizeof(struct ip_hdr));
 
   struct ethernet_hdr* eHdr = (struct ethernet_hdr*)(packet.data());
-  struct ip_hdr* iHdr = (struct ip_hdr*)((uint8_t*)eHdr + sizeof(struct ether_hdr));
+  struct ip_hdr* iHdr = (struct ip_hdr*)((uint8_t*)eHdr + sizeof(struct ethernet_hdr));
   const auto entry = m_routingTable.lookup(iHdr->ip_src);
   const auto outIface = findIfaceByName(entry.ifName);
 
@@ -279,7 +288,7 @@ SimpleRouter::sendICMP(const Buffer& packet, const uint8_t& icmp_type, const uin
 
   iHdrR->ip_id = 0;
   iHdrR->ip_p = ip_protocol_icmp;
-  iHdrR->ip_ttl = IP_TTL;
+  iHdrR->ip_ttl = IP_TIME_TL;
   iHdrR->ip_sum = 0;
   iHdrR->ip_src = outIface->ip;
   iHdrR->ip_dst = iHdr->ip_src;
@@ -294,7 +303,7 @@ SimpleRouter::sendICMP(const Buffer& packet, const uint8_t& icmp_type, const uin
   icHdrR->icmp_sum = 0;
   icHdrR->icmp_sum = cksum(icHdrR, packet.size() - sizeof(struct ethernet_hdr) - sizeof(struct ip_hdr));
 
-  sendPacket(reply, outIface);
+  sendPacket(reply, outIface->name);
 }
 
 void
@@ -306,7 +315,7 @@ SimpleRouter::sendIPv4(const Buffer& packet, const std::string& inIface)
     sendICMP(packet, icmp_type_time_exceeded, icmp_code_ttl_exceeded);
     return;
   }
-  RoutingTableEntry = rtEntry;
+  RoutingTableEntry rtEntry;
   try
   {
     rtEntry = m_routingTable.lookup(iHdr->ip_dst);
@@ -334,7 +343,7 @@ SimpleRouter::sendIPv4(const Buffer& packet, const std::string& inIface)
 
   iHdrS->ip_ttl--;
   iHdrS->ip_sum = 0;
-  iHdrS->ip_sum = cksum(iHdrS, sizeof(struct ip_hdr);
+  iHdrS->ip_sum = cksum(iHdrS, sizeof(struct ip_hdr));
   sendPacket(buf, outIface->name);
 }
 
