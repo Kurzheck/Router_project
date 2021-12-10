@@ -36,14 +36,14 @@ ArpCache::periodicCheckArpRequestsAndCacheEntries()
 	for (auto request : m_arpRequests) {
 		time_point now = steady_clock::now();
 		if (now - request->timeSent <= seconds(1)) {
-			// CERR("Time interval < 1s, miss it");
+			std::cerr << "Time interval < 1s" << std::endl;
 			return;
 		}
 
 		if (request->nTimesSent >= MAX_SENT_TIME) {
 			invalidRequests.push_back(request);
 			for (auto& packet : request->packets) {
-				m_router.replyIcmpHostUnreachable(packet.packet);
+				m_router.sendICMP(packet.packet, icmp_type_unreachable, icmp_code_host_unreachable);
 			}
 		} else {
 			m_router.sendArpRequest(request->ip);

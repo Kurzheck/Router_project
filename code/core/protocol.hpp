@@ -53,6 +53,9 @@
 
 #define ICMP_DATA_SIZE 28
 
+#define ARP_HW_LEN 0x06
+#define ARP_PORT_LEN 0x04
+
 namespace simple_router {
 
 using Buffer = std::vector<unsigned char>;
@@ -137,6 +140,10 @@ enum arp_opcode {
 
 enum arp_hrd_fmt {
   arp_hrd_ethernet = 0x0001,
+};
+
+enum arp_pro_fmt {
+  arp_pro_ipv4 = 0x0800,
 };
 
 enum icmp_type {

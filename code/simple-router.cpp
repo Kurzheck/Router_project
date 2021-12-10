@@ -87,7 +87,7 @@ SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
   {
     goto InvalidIPv4;
   }
-  struct ip_hdr* iHdr = (struct ip_hdr*)(packet.data() +¡¡sizeof(struct ethernet_hdr));
+  struct ip_hdr* iHdr = (struct ip_hdr*)(packet.data() +ï¿½ï¿½sizeof(struct ethernet_hdr));
   const auto checksum = iHdr->ip_sum;
   iHdr->ip_sum = 0;
   if (cksum(iHdr, sizeof(struct ip_hdr)) != checksum)
@@ -139,10 +139,10 @@ SimpleRouter::handleArp(const Buffer& packet, const std::string& inIface)
     goto InvalidArp;
   }
 
-  switch (ntohs(hARP->arp_op))
+  switch (ntohs(aHdr->arp_op))
   {
   case arp_op_request:
-    sendArp(packet, inIface);
+    sendArpReply(packet, inIface);
     break;
   case arp_op_reply:
     struct arp_hdr* aHdrR = (struct arp_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
@@ -213,7 +213,33 @@ InvalidICMP:
 }
 
 void
-SimpleRouter::sendArp(const Buffer& packet, const std::string& inIface)
+SimpleRouter::sendArpRequest(uint32_t ip)
+{
+  Buffer request(sizeof(struct ethernet_hdr) + sizeof(struct arp_hdr));
+  struct ethernet_hdr* eHdr = (struct ethernet_hdr*)(request.data());
+  struct arp_hdr* aHdr = (struct arp_hdr*)((uint8_t*)eHdr + sizeof(struct ethernet_hdr));
+  const auto entry = m_routingTable.lookup(ip);
+  const auto outIface = findIfaceByName(entry.ifName);
+
+  memcpy(eHdr->ether_shost, outIface->addr.data(), ETHER_ADDR_LEN);
+  memset(eHdr->ether_dhost, 0xff, ETHER_ADDR_LEN);
+  eHdr->ether_type = htons(ethertype_arp);
+
+  memcpy(aHdr->arp_sha, outIface->addr.data(), ETHER_ADDR_LEN);
+  memset(aHdr->arp_tha, 0xff, ETHER_ADDR_LEN);
+  aHdr->arp_hrd = htons(arp_hrd_ethernet);
+  aHdr->arp_pro = htons(arp_pro_ipv4);
+  aHdr->arp_hln = ARP_HW_LEN;
+  aHdr->arp_pln = ARP_PORT_LEN;
+  aHdr->arp_op = htons(arp_op_request);
+  aHdr->arp_sip = outIface->ip;
+  aHdr->arp_tip = ip;
+  
+  sendPacket(request, outIface->name);
+}
+
+void
+SimpleRouter::sendArpReply(const Buffer& packet, const std::string& inIface)
 {
   Buffer reply(packet);
   struct ethernet_hdr* eHdrR = (struct ethernet_hdr*)(reply.data());
