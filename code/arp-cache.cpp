@@ -41,11 +41,13 @@ ArpCache::periodicCheckArpRequestsAndCacheEntries()
 		}
 
 		if (request->nTimesSent >= MAX_SENT_TIME) {
+			std::cerr << "ARP attempts exceeded" << std::endl;
 			invalidRequests.push_back(request);
 			for (auto& packet : request->packets) {
 				m_router.sendICMP(packet.packet, icmp_type_unreachable, icmp_code_host_unreachable);
 			}
 		} else {
+			//std::cerr << "resend ARP attempts" << std::endl;
 			m_router.sendArpRequest(request->ip);
 			request->nTimesSent++;
 			request->timeSent = now;
