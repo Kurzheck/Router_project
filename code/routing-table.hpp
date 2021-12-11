@@ -20,6 +20,7 @@
 #include "core/protocol.hpp"
 
 #include <list>
+#include <iostream>
 
 namespace simple_router {
 
