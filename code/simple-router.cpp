@@ -41,7 +41,7 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
   print_hdrs(packet);
   // check Ether
   struct ethernet_hdr* eHdr = (struct ethernet_hdr*)packet.data();
-  const uint8_t* dst = eHdr->ether_dhost;
+  //const uint8_t* dst = eHdr->ether_dhost[0];
   const Interface* iFace = findIfaceByName(inIface);
   uint16_t eType;
   if (packet.size() < sizeof(struct ethernet_hdr))
@@ -49,16 +49,23 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
     std::cerr << "size too small" << std::endl;
     goto InvalidEther;
   }
-
-  if (0 &&//memcmp(eHdr->ether_dhost, iFace->addr.data(), ETHER_ADDR_LEN) &&
-    (dst[0] & dst[1] & dst[2] & dst[3] & dst[4] & dst[5]) != 0xff)
+  
+  eType = ntohs(eHdr->ether_type);
+  if (eType != ethertype_ip && eType != ethertype_arp)
   {
-    std::cerr << "dst = " << eHdr->ether_dhost[2] << " addr = " << iFace->addr.data() << std::endl;
+    std::cerr << "type wrong" << std::endl;
+    goto InvalidEther;
+  }
+
+  //std::cerr << "dst = " << dst[0] << ":" << dst[1] << ":" << dst[2] << ":" << dst[3] << ":" << dst[4] << ":" << dst[5] << ":" << std::endl;
+  if (memcmp(eHdr->ether_dhost, iFace->addr.data(), ETHER_ADDR_LEN) &&
+      !is_broadcast(eHdr->ether_dhost))
+  {
+    std::cerr << "compare result: " << memcmp(eHdr->ether_dhost, iFace->addr.data(), ETHER_ADDR_LEN) << std::endl;
     std::cerr << "dst wrong" << std::endl;
     goto InvalidEther;
   }
 
-  eType = ntohs(eHdr->ether_type);
   //eType = eHdr->ether_type; // ？？？？？？
   std::cerr << "type = " << eType << std::endl;
   switch (eType)
@@ -357,6 +364,7 @@ SimpleRouter::sendIPv4(const Buffer& packet, const std::string& inIface)
   const auto aEntry = m_arp.lookup(rtEntry.gw);
   if (!aEntry)
   {
+    std::cerr << "queue request" << std::endl;
     m_arp.queueRequest(iHdr->ip_dst, packet, inIface);
     return;
   }

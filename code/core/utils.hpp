@@ -37,6 +37,7 @@ namespace simple_router {
 uint16_t cksum(const void* data, int len);
 uint16_t ethertype(const uint8_t* buf);
 uint8_t ip_protocol(const uint8_t* buf);
+bool is_broadcast(const uint8_t* buf);
 
 /**
  * Get formatted Ethernet address, e.g. 00:11:22:33:44:55
