@@ -13,7 +13,6 @@
  * You should have received a copy of the GNU General Public License along with this program.
  * If not, see <http://www.gnu.org/licenses/>.
  */
-
 #ifndef SIMPLE_ROUTER_SIMPLE_ROUTER_HPP
 #define SIMPLE_ROUTER_SIMPLE_ROUTER_HPP
 
@@ -32,7 +31,7 @@ public:
 
   SimpleRouter();
 
-  /**
+  /*
    * IMPLEMENT THIS METHOD
    *
    * This method is called each time the router receives a packet on

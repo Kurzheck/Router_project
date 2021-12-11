@@ -40,21 +40,22 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
   // FILL THIS IN
 
   // check Ether
+  struct ethernet_hdr* eHdr = (struct ethernet_hdr*)packet.data();
+  const auto dst = eHdr->ether_dhost;
+  const auto iFace = findIfaceByName(inIface);
+  uint16_t eType;
   if (packet.size() < sizeof(struct ethernet_hdr))
   {
     goto InvalidEther;
   }
-  struct ethernet_hdr* eHdr = (struct ethernet_hdr*)packet.data();
 
-  const auto dst = eHdr->ether_dhost;
-  const auto iFace = findIfaceByName(inIface);
   if (memcmp(dst, iFace->addr.data(), ETHER_ADDR_LEN) &&
     (dst[0] & dst[1] & dst[2] & dst[3] & dst[4] & dst[5]) != 0xff)
   {
     goto InvalidEther;
   }
 
-  uint16_t eType = ntohs(eHdr->ether_type);
+  eType = ntohs(eHdr->ether_type);
   switch (eType)
   {
 
@@ -87,12 +88,14 @@ InvalidEther:
 void
 SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
 {
+  struct ip_hdr* iHdr = (struct ip_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
+  const auto checksum = iHdr->ip_sum;
+  const auto iface = findIfaceByIp(iHdr->ip_dst);
   if (packet.size() != sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr))
   {
     goto InvalidIPv4;
   }
-  struct ip_hdr* iHdr = (struct ip_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
-  const auto checksum = iHdr->ip_sum;
+  
   iHdr->ip_sum = 0;
   if (cksum(iHdr, sizeof(struct ip_hdr)) != checksum)
   {
@@ -101,7 +104,8 @@ SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
   }
   iHdr->ip_sum = checksum;
 
-  const auto iface = findIfaceByIp(iHdr->ip_dst);
+  //const auto iface = findIfaceByIp(iHdr->ip_dst);
+  //iface = findIfaceByIp(iHdr->ip_dst);
   if (iface) // forwarding
   {
     // dispatch IPv4
@@ -122,13 +126,16 @@ InvalidIPv4:
 void
 SimpleRouter::handleArp(const Buffer& packet, const std::string& inIface)
 {
+  std::cerr << "handle ARP..." << std::endl;
+  struct arp_hdr* aHdr = (struct arp_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
+  const auto iface = findIfaceByName(inIface);
   if (packet.size() != sizeof(struct ethernet_hdr) + sizeof(struct arp_hdr))
   {
     goto InvalidArp;
   }
-  struct arp_hdr* aHdr = (struct arp_hdr*)(packet.data() + sizeof(struct ethernet_hdr));
-  const auto iface = findIfaceByName(inIface);
-
+  
+  //const auto iface = findIfaceByName(inIface);
+  // iface = findIfaceByName(inIface);
   if (aHdr->arp_tip != iface->ip)
   {
     std::cerr << "ARP IP and interface does not match" << std::endl;
@@ -193,21 +200,26 @@ SimpleRouter::handleICMP(const Buffer& packet, const uint8_t& protocol)
     return;
   }
 
+  struct icmp_hdr* icHdr = (struct icmp_hdr*)(packet.data() + sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr));
+  //const auto checksum = icHdr->icmp_sum;
+
   if (packet.size() < sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct icmp_hdr))
   {
     goto InvalidICMP;
   }
 
   // ??? todo
-  struct icmp_hdr* icHdr = (struct icmp_hdr*)(packet.data() + sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr));
-  const auto checksum = icHdr->icmp_sum;
-  icHdr->icmp_sum = 0;
-  if (cksum(icHdr, packet.size() - sizeof(struct ethernet_hdr) - sizeof(struct ip_hdr)) != checksum)
+  //struct icmp_hdr* icHdr = (struct icmp_hdr*)(packet.data() + sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr));
+  //const auto checksum = icHdr->icmp_sum;
+  //icHdr->icmp_sum = 0;
+
+  //if (cksum(icHdr, packet.size() - sizeof(struct ethernet_hdr) - sizeof(struct ip_hdr)) != checksum)
+  if (cksum(icHdr, packet.size() - sizeof(struct ethernet_hdr) - sizeof(struct ip_hdr)) != 0xffff)
   {
-    icHdr->icmp_sum = checksum;
+    //icHdr->icmp_sum = checksum;
     goto InvalidICMP;
   }
-  icHdr->icmp_sum = checksum;
+  //icHdr->icmp_sum = checksum;
 
   if (icHdr->icmp_type == icmp_type_echo && icHdr->icmp_code == icmp_code_echo)
   {
@@ -374,6 +386,7 @@ SimpleRouter::loadIfconfig(const std::string& ifconfig)
   std::ifstream iff(ifconfig.c_str());
   std::string line;
   while (std::getline(iff, line)) {
+    // std::cerr << line << std::endl;
     std::istringstream ifLine(line);
     std::string iface, ip;
     ifLine >> iface >> ip;
