@@ -41,8 +41,7 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
   print_hdrs(packet);
   // check Ether
   struct ethernet_hdr* eHdr = (struct ethernet_hdr*)packet.data();
-  //const uint8_t* dst = eHdr->ether_dhost[0];
-  const Interface* iFace = findIfaceByName(inIface);
+  const uint8_t* dst = eHdr->ether_dhost;
   uint16_t eType;
   if (packet.size() < sizeof(struct ethernet_hdr))
   {
@@ -57,16 +56,13 @@ SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
     goto InvalidEther;
   }
 
-  //std::cerr << "dst = " << dst[0] << ":" << dst[1] << ":" << dst[2] << ":" << dst[3] << ":" << dst[4] << ":" << dst[5] << ":" << std::endl;
-  if (memcmp(eHdr->ether_dhost, iFace->addr.data(), ETHER_ADDR_LEN) &&
-      !is_broadcast(eHdr->ether_dhost))
+  if (memcmp(dst, iface->addr.data(), ETHER_ADDR_LEN) &&
+      (dst[0] & dst[1] & dst[2] & dst[3] & dst[4] & dst[5]) != 0xff)
   {
-    std::cerr << "compare result: " << memcmp(eHdr->ether_dhost, iFace->addr.data(), ETHER_ADDR_LEN) << std::endl;
     std::cerr << "dst wrong" << std::endl;
     goto InvalidEther;
   }
 
-  //eType = eHdr->ether_type; // ？？？？？？
   std::cerr << "type = " << eType << std::endl;
   switch (eType)
   {
@@ -121,7 +117,7 @@ SimpleRouter::handleIPv4(const Buffer& packet, const std::string& inIface)
 
   //const auto iface = findIfaceByIp(iHdr->ip_dst);
   //iface = findIfaceByIp(iHdr->ip_dst);
-  if (iface) // forwarding
+  if (!iface) // forwarding
   {
     // dispatch IPv4
     sendIPv4(packet, inIface);
@@ -220,25 +216,20 @@ SimpleRouter::handleICMP(const Buffer& packet, const uint8_t& protocol)
   }
 
   struct icmp_hdr* icHdr = (struct icmp_hdr*)(packet.data() + sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr));
-  //const auto checksum = icHdr->icmp_sum;
+  const auto checksum = icHdr->icmp_sum;
 
   if (packet.size() < sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct icmp_hdr))
   {
     goto InvalidICMP;
   }
 
-  // ??? todo
-  //struct icmp_hdr* icHdr = (struct icmp_hdr*)(packet.data() + sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr));
-  //const auto checksum = icHdr->icmp_sum;
-  //icHdr->icmp_sum = 0;
-
-  //if (cksum(icHdr, packet.size() - sizeof(struct ethernet_hdr) - sizeof(struct ip_hdr)) != checksum)
-  if (cksum(icHdr, packet.size() - sizeof(struct ethernet_hdr) - sizeof(struct ip_hdr)) != 0xffff)
+  icHdr->icmp_sum = 0;
+  if (cksum(icHdr, packet.size() - sizeof(struct ethernet_hdr) - sizeof(struct ip_hdr)) != checksum)
   {
-    //icHdr->icmp_sum = checksum;
+    icHdr->icmp_sum = checksum;
     goto InvalidICMP;
   }
-  //icHdr->icmp_sum = checksum;
+  icHdr->icmp_sum = checksum;
 
   if (icHdr->icmp_type == icmp_type_echo && icHdr->icmp_code == icmp_code_echo)
   {

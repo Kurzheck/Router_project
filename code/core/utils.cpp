@@ -62,12 +62,6 @@ uint8_t ip_protocol(const uint8_t* buf) {
   return iphdr->ip_p;
 }
 
-bool is_broadcast(const uint8_t* buf)
-{
-  return (buf[0] & buf[1] & buf[2] & buf[3] & buf[4] & buf[5]) == 0xff;
-}
-
-
 std::string
 macToString(const Buffer& macAddr)
 {

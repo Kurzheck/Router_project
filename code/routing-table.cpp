@@ -41,15 +41,10 @@ RoutingTable::lookup(uint32_t ip) const
     if ((ip & entry.mask) == (entry.dest & entry.mask))
     {
       int n = entry.mask;
-      n = n - ((n >> 1) & 0x55555555);
-      n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
-      n = (((n + (n >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
-      /*
       n = (n & 0x55555555) + ((n >> 1) & 0x55555555);
       n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
       n = (n & 0x0F0F0F0F) + ((n >> 4) & 0x0F0F0F0F);
       n = (n * 0x01010101) >> 24;
-      */
       if (pre_len < n)
       {
         pre_len = n;
