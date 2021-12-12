@@ -145,7 +145,7 @@ SimpleRouter::handleArp(const Buffer& packet, const std::string& inIface)
 
   if (ntohs(aHdr->arp_hrd) != arp_hrd_ethernet ||
       ntohs(aHdr->arp_pro) != 0x800 ||
-      aHdr->arp_tip != iface->ip || //???
+      aHdr->arp_tip != iface->ip ||
       aHdr->arp_hln != 0x06 ||
       aHdr->arp_pln != 0x04)
   {
