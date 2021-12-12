@@ -33,7 +33,6 @@ RoutingTableEntry
 RoutingTable::lookup(uint32_t ip) const
 {
   // FILL THIS IN
-  std::cerr << "lookup" << std::endl;
   RoutingTableEntry out_entry;
   int pre_len = -1;
   for (auto entry : m_entries)
@@ -52,7 +51,7 @@ RoutingTable::lookup(uint32_t ip) const
       }
     }
   }
-  std::cerr << "pre_len = " << pre_len << std::endl;
+
   if (pre_len > -1)
   {
     return out_entry;

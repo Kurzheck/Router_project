@@ -32,39 +32,38 @@ ArpCache::periodicCheckArpRequestsAndCacheEntries()
 {
 
 	// FILL THIS IN
-	std::vector<std::shared_ptr<ArpRequest>> invalidRequests;
+	// requests
+	std::vector<std::shared_ptr<ArpRequest>> invalidReqs;
 	for (auto request : m_arpRequests) {
-		time_point now = steady_clock::now();
+		auto now = steady_clock::now();
 		if (now - request->timeSent <= seconds(1)) {
-			std::cerr << "Time interval < 1s" << std::endl;
 			return;
 		}
 
 		if (request->nTimesSent >= MAX_SENT_TIME) {
-			std::cerr << "ARP attempts exceeded" << std::endl;
-			invalidRequests.push_back(request);
+			invalidReqs.push_back(request);
 			for (auto& packet : request->packets) {
 				m_router.sendICMP(packet.packet, icmp_type_unreachable, icmp_code_host_unreachable);
 			}
 		} else {
-			//std::cerr << "resend ARP attempts" << std::endl;
 			m_router.sendArpRequest(request->ip);
-			request->nTimesSent++;
 			request->timeSent = now;
+			request->nTimesSent++;
 		}
 	}
 
-	for (auto request : invalidRequests) {
+	for (auto request : invalidReqs) {
 		m_arpRequests.remove(request);
 	}
 
-	// remove
+	// entries
 	std::vector<std::shared_ptr<ArpEntry>> invalidEntries;
 	for (auto entry : m_cacheEntries) {
 		if (!entry->isValid) {
 			invalidEntries.push_back(entry);
 		}
 	}
+
 	for (auto entry : invalidEntries) {
 		m_cacheEntries.remove(entry);
 	}
